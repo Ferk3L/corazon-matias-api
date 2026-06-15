@@ -108,25 +108,53 @@ export class CashbackService {
 
   async toggleBloqueo(uid: string, bloquear: boolean, motivo?: string) {
     const db = this.firebase.getDb();
+    const auth = this.firebase.getAuth();
     const ref = db.collection('clientes').doc(uid);
     const doc = await ref.get();
     if (!doc.exists) throw new NotFoundException('Cliente no encontrado');
+
+    // Actualizar en Firestore
     await ref.update({
       bloqueado: bloquear,
       motivoBloqueo: motivo || '',
       fechaBloqueo: bloquear ? admin.firestore.Timestamp.now() : null,
     });
+
+    // Bloquear/desbloquear en Firebase Auth
+    try {
+      await auth.updateUser(uid, { disabled: bloquear });
+    } catch (authError: any) {
+      if (authError.code !== 'auth/user-not-found') {
+        console.warn(`No se pudo actualizar Auth: ${authError.message}`);
+      }
+    }
+
     return { uid, bloqueado: bloquear };
   }
 
   async eliminarCliente(uid: string) {
     const db = this.firebase.getDb();
+    const auth = this.firebase.getAuth();
+
+    // 1. Eliminar documento del cliente en Firestore
     await db.collection('clientes').doc(uid).delete();
+
+    // 2. Eliminar movimientos de cashback
     const movSnapshot = await db.collection('movimientos_cashback')
       .where('clienteUid', '==', uid).get();
     const batch = db.batch();
     movSnapshot.docs.forEach(d => batch.delete(d.ref));
     await batch.commit();
-    return { message: `Cliente ${uid} eliminado` };
+
+    // 3. Eliminar de Firebase Auth para que pueda volver a registrarse
+    try {
+      await auth.deleteUser(uid);
+    } catch (authError: any) {
+      if (authError.code !== 'auth/user-not-found') {
+        console.warn(`No se pudo eliminar de Auth: ${authError.message}`);
+      }
+    }
+
+    return { message: `Cliente ${uid} eliminado correctamente` };
   }
 }
