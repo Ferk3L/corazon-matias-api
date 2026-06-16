@@ -47,9 +47,9 @@ export class MailService {
       },
       body: JSON.stringify({
         sender: {
-          name: 'Corazón de Matías 💖',
-          email: process.env.BREVO_USER || 'corazondematias@gmail.com',
-        },
+  name: 'Corazón de Matías 💖',
+  email: 'noreply@brevo.com',  // ← cambiar esto
+},
         to: [{ email, name: nombre }],
         subject: `${codigo} — Tu código de verificación | Corazón de Matías`,
         htmlContent: html,
