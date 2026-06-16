@@ -10,44 +10,54 @@ export class VerificationService {
     private readonly mailService: MailService,
   ) {}
 
-  // Genera código ANTES de crear la cuenta — usa email como key
-  async enviarCodigo(uid: string, email: string, nombre: string): Promise<void> {
-    const db = this.firebase.getDb();
+  // Convierte email a key válido para Firestore
+  private emailToKey(email: string): string {
+    // Reemplazar caracteres inválidos para Firestore doc ID
+    return email
+      .toLowerCase()
+      .replace(/\./g, '_dot_')
+      .replace(/@/g, '_at_')
+      .replace(/[^a-z0-9_]/g, '_');
+  }
 
+  async enviarCodigo(uid: string, email: string, nombre: string): Promise<void> {
+    if (!email || !email.trim()) {
+      throw new BadRequestException('El email es requerido');
+    }
+
+    const db = this.firebase.getDb();
     const codigo = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = admin.firestore.Timestamp.fromDate(
       new Date(Date.now() + 10 * 60 * 1000)
     );
 
-    // Usar email sanitizado como ID del documento
-    const emailKey = email.replace(/[.#$[\]]/g, '_');
+    const emailKey = this.emailToKey(email.trim());
+
     await db.collection('verification_codes').doc(emailKey).set({
       uid: uid || '',
-      email,
-      nombre,
+      email: email.trim(),
+      nombre: nombre || email.split('@')[0],
       codigo,
       expiresAt,
       usado: false,
       createdAt: admin.firestore.Timestamp.now(),
     });
 
-    await this.mailService.enviarCodigoVerificacion(email, nombre, codigo);
+    await this.mailService.enviarCodigoVerificacion(email.trim(), nombre || email.split('@')[0], codigo);
   }
 
-  // Enviar código sin uid (antes de crear cuenta)
-  async enviarCodigoPorEmail(email: string, nombre: string): Promise<void> {
-    await this.enviarCodigo('', email, nombre);
-  }
-
-  // Valida el código por email
   async verificarCodigoPorEmail(email: string, codigo: string): Promise<{ success: boolean; message: string }> {
+    if (!email || !codigo) {
+      throw new BadRequestException('Email y código son requeridos');
+    }
+
     const db = this.firebase.getDb();
-    const emailKey = email.replace(/[.#$[\]]/g, '_');
+    const emailKey = this.emailToKey(email.trim());
     const ref = db.collection('verification_codes').doc(emailKey);
     const doc = await ref.get();
 
     if (!doc.exists) {
-      throw new BadRequestException('No se encontró un código para este usuario');
+      throw new BadRequestException('No se encontró un código para este correo');
     }
 
     const data = doc.data() as any;
@@ -64,13 +74,11 @@ export class VerificationService {
       throw new BadRequestException('Código incorrecto');
     }
 
-    // Marcar código como usado
     await ref.update({ usado: true });
 
     return { success: true, message: 'Correo verificado correctamente' };
   }
 
-  // Mantener compatibilidad con uid
   async verificarCodigo(uid: string, codigo: string): Promise<{ success: boolean; message: string }> {
     const db = this.firebase.getDb();
     const auth = this.firebase.getAuth();
@@ -86,10 +94,10 @@ export class VerificationService {
     return { success: true, message: 'Correo verificado correctamente' };
   }
 
-  // Reenviar código
   async reenviarCodigo(email: string): Promise<void> {
+    if (!email) throw new BadRequestException('El email es requerido');
     const db = this.firebase.getDb();
-    const emailKey = email.replace(/[.#$[\]]/g, '_');
+    const emailKey = this.emailToKey(email.trim());
     const doc = await db.collection('verification_codes').doc(emailKey).get();
     if (!doc.exists) throw new BadRequestException('No se encontró el código');
     const data = doc.data() as any;
