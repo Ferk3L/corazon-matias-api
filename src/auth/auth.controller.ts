@@ -7,9 +7,15 @@ export class AuthController {
 
   // POST /api/v1/auth/send-code
   @Post('send-code')
-  async sendCode(@Body() body: { uid: string; email: string; nombre: string }) {
-    await this.verificationService.enviarCodigo(body.uid, body.email, body.nombre);
+  async sendCode(@Body() body: { uid?: string; email: string; nombre: string }) {
+    await this.verificationService.enviarCodigo(body.uid || '', body.email, body.nombre);
     return { success: true, message: 'Código enviado al correo' };
+  }
+
+  // POST /api/v1/auth/verify-code-email
+  @Post('verify-code-email')
+  async verifyCodeByEmail(@Body() body: { email: string; codigo: string }) {
+    return this.verificationService.verificarCodigoPorEmail(body.email, body.codigo);
   }
 
   // POST /api/v1/auth/verify-code
@@ -20,8 +26,8 @@ export class AuthController {
 
   // POST /api/v1/auth/resend-code
   @Post('resend-code')
-  async resendCode(@Body() body: { uid: string }) {
-    await this.verificationService.reenviarCodigo(body.uid);
+  async resendCode(@Body() body: { email: string }) {
+    await this.verificationService.reenviarCodigo(body.email);
     return { success: true, message: 'Código reenviado' };
   }
 }
