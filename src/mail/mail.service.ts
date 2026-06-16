@@ -1,22 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
-  private transporter: nodemailer.Transporter;
   private readonly logger = new Logger(MailService.name);
-
-  constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.BREVO_HOST || 'smtp-relay.brevo.com',
-      port: parseInt(process.env.BREVO_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.BREVO_USER,
-        pass: process.env.BREVO_PASS,
-      },
-    });
-  }
 
   async enviarCodigoVerificacion(email: string, nombre: string, codigo: string): Promise<void> {
     const html = `
@@ -51,13 +37,30 @@ export class MailService {
     </body>
     </html>`;
 
-    await this.transporter.sendMail({
-      from: `"Corazón de Matías 💖" <corazondematias@gmail.com>`,
-      to: email,
-      subject: `${codigo} — Tu código de verificación | Corazón de Matías`,
-      html,
+    // Usar API HTTP de Brevo — no SMTP (Railway bloquea SMTP)
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_PASS || '',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'Corazón de Matías 💖',
+          email: process.env.BREVO_USER || 'corazondematias@gmail.com',
+        },
+        to: [{ email, name: nombre }],
+        subject: `${codigo} — Tu código de verificación | Corazón de Matías`,
+        htmlContent: html,
+      }),
     });
 
-    this.logger.log(`Código enviado a ${email}`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Error Brevo: ${JSON.stringify(error)}`);
+    }
+
+    this.logger.log(`✅ Código enviado a ${email}`);
   }
 }
