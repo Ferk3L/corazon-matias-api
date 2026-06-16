@@ -1,0 +1,79 @@
+import { Injectable, Logger } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
+
+@Injectable()
+export class MailService {
+  private transporter: nodemailer.Transporter;
+  private readonly logger = new Logger(MailService.name);
+
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    });
+  }
+
+  async enviarCodigoVerificacion(email: string, nombre: string, codigo: string): Promise<void> {
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Arial,sans-serif;">
+      <div style="max-width:500px;margin:40px auto;background:white;border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+        
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:30px;text-align:center;">
+          <div style="font-size:40px;margin-bottom:8px;">💖</div>
+          <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">Corazón de Matías</h1>
+          <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:13px;">Fábrica de Dulces Artesanales</p>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:30px;">
+          <h2 style="color:#1e40af;font-size:18px;margin:0 0 8px;">¡Hola, ${nombre}! 👋</h2>
+          <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 24px;">
+            Gracias por registrarte. Usa el siguiente código para verificar tu correo electrónico:
+          </p>
+
+          <!-- Código -->
+          <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:16px;padding:24px;text-align:center;margin:0 0 24px;">
+            <p style="color:rgba(255,255,255,0.8);font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:2px;">Tu código de verificación</p>
+            <div style="font-size:42px;font-weight:800;color:white;letter-spacing:12px;font-family:monospace;">${codigo}</div>
+            <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:12px 0 0;">⏱️ Válido por 10 minutos</p>
+          </div>
+
+          <p style="color:#888;font-size:13px;line-height:1.5;margin:0 0 8px;">
+            Si no solicitaste este código, puedes ignorar este mensaje.
+          </p>
+          <p style="color:#888;font-size:13px;line-height:1.5;margin:0;">
+            ⚠️ Nunca compartas este código con nadie.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background:#f9fafb;padding:20px;text-align:center;border-top:1px solid #e5e7eb;">
+          <p style="color:#aaa;font-size:12px;margin:0;">© 2025 Fábrica de Dulces Corazón de Matías · Durango, México</p>
+          <p style="color:#aaa;font-size:12px;margin:4px 0 0;">📞 618 126 0061</p>
+        </div>
+
+      </div>
+    </body>
+    </html>
+    `;
+
+    await this.transporter.sendMail({
+      from: `"Corazón de Matías 💖" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: `${codigo} — Tu código de verificación | Corazón de Matías`,
+      html,
+    });
+
+    this.logger.log(`Código de verificación enviado a ${email}`);
+  }
+}
