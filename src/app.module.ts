@@ -1,25 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { FirebaseModule } from './firebase/firebase.module';
-import { ProductsModule } from './products/products.module';
-import { OrdersModule } from './orders/orders.module';
-import { CashbackModule } from './cashback/cashback.module';
-import { AuthModule } from './auth/auth.module';
-import { MailModule } from './mail/mail.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { AuthController } from './auth.controller';
+import { VerificationService } from './verification.service';
+import { MailModule } from '../mail/mail.module';
+import { FirebaseModule } from '../firebase/firebase.module';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    FirebaseModule,
-    ProductsModule,
-    OrdersModule,
-    CashbackModule,
-    MailModule,
-    AuthModule,
-  ],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [FirebaseModule, MailModule],
+  controllers: [AuthController],
+  providers: [VerificationService],
+  exports: [VerificationService],
 })
-export class AppModule {}
+export class AuthModule {}
