@@ -1,8 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
+  private transporter: nodemailer.Transporter;
   private readonly logger = new Logger(MailService.name);
+
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.BREVO_HOST || 'smtp-relay.brevo.com',
+      port: parseInt(process.env.BREVO_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.BREVO_USER,
+        pass: process.env.BREVO_PASS,
+      },
+    });
+  }
 
   async enviarCodigoVerificacion(email: string, nombre: string, codigo: string): Promise<void> {
     const html = `
@@ -14,7 +28,7 @@ export class MailService {
         <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:30px;text-align:center;">
           <div style="font-size:40px;margin-bottom:8px;">💖</div>
           <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">Corazón de Matías</h1>
-          <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:13px;">Fábrica de Dulces Artesanales</p>
+          <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:13px;">Fábrica de Dulces Artesanales · Durango, México</p>
         </div>
         <div style="padding:30px;">
           <h2 style="color:#1e40af;font-size:18px;margin:0 0 8px;">¡Hola, ${nombre}! 👋</h2>
@@ -31,30 +45,19 @@ export class MailService {
         </div>
         <div style="background:#f9fafb;padding:20px;text-align:center;border-top:1px solid #e5e7eb;">
           <p style="color:#aaa;font-size:12px;margin:0;">© 2025 Fábrica de Dulces Corazón de Matías · Durango, México</p>
+          <p style="color:#aaa;font-size:12px;margin:4px 0 0;">📞 618 126 0061</p>
         </div>
       </div>
     </body>
     </html>`;
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Corazón de Matías <onboarding@resend.dev>',
-        to: [email],
-        subject: `${codigo} — Tu código de verificación | Corazón de Matías`,
-        html,
-      }),
+    await this.transporter.sendMail({
+      from: `"Corazón de Matías 💖" <corazondematias@gmail.com>`,
+      to: email,
+      subject: `${codigo} — Tu código de verificación | Corazón de Matías`,
+      html,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Error al enviar email: ${JSON.stringify(error)}`);
-    }
-
-    this.logger.log(`Código de verificación enviado a ${email}`);
+    this.logger.log(`Código enviado a ${email}`);
   }
 }
